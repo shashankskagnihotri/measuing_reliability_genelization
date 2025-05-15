@@ -1,0 +1,3 @@
+[submodule "object_detection/mmdetection"]
+	path = object_detection/mmdetection
+	url = https://github.com/jjakubassa/mmdetection
