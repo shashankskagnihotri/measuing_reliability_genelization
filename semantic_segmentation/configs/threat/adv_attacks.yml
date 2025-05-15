@@ -1,0 +1,5 @@
+threat_model: "PGD"
+iterations: 20
+epsilon: 8.0
+alpha: 0.01
+lp_norm: "Linf"
