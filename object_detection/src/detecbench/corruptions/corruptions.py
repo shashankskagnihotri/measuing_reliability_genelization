@@ -6,7 +6,23 @@ from typing import Literal
 class CommonCorruption:
     """"""
 
-    name: str = "cc_"
+    name: Literal[
+        "gaussian_noise",
+        "shot_noise",
+        "impulse_noise",
+        "defocus_blur",
+        "glass_blur",
+        "motion_blur",
+        "zoom_blur",
+        "snow",
+        "frost",
+        "fog",
+        "brightness",
+        "contrast",
+        "elastic_transform",
+        "pixelate",
+        "jpeg_compression",
+    ]
     severity: int = 3
     generate_missing: bool = False
     dataset: Literal["Coco", "Pascal"] = "Coco"
@@ -16,7 +32,7 @@ class CommonCorruption:
 class CommonCorruption3d:
     """"""
 
-    name: str = "3dcc_"
+    name: str
     severity: int = 3
     generate_missing: bool = False
     dataset: Literal["Coco", "Pascal"] = "Coco"

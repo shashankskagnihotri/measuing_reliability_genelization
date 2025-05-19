@@ -1,17 +1,25 @@
 import os
-from typing import Literal
+from dataclasses import dataclass
 
 import mmdet
 import tyro
-from attacks import BIM, FGSM, PGD, replace_val_loop
-from corruptions import CommonCorruption, CommonCorruption3d
 from mmengine.config import Config
 from mmengine.runner import Runner
 
+from detecbench.attacks import BIM, FGSM, PGD, replace_val_loop
+from detecbench.corruptions import CommonCorruption, CommonCorruption3d
 
-def detecbench(
-    task: PGD | FGSM | BIM | CommonCorruption | CommonCorruption3d | Literal["iid"],
-    model_folder: str = "./src/detecbench/models/RetinaNet_R-101-FPN",
+
+@dataclass
+class IID:
+    """Independent and Identically Distributed (IID) evaluation."""
+
+    pass
+
+
+def evaluate(
+    task: PGD | FGSM | BIM | CommonCorruption | CommonCorruption3d | IID,
+    model_folder: str = "./models/RetinaNet_R-101-FPN",
     log_dir: str = "./logs",
     wandb_project: str | None = None,
     wandb_entity: str | None = None,
@@ -37,7 +45,7 @@ def detecbench(
     elif isinstance(task, CommonCorruption3d):
         is_3dcc = True
         task_name = "3DCC"
-    elif task == "iid":
+    elif isinstance(task, IID):
         task_name = "iid"
     else:
         raise NotImplementedError
@@ -64,13 +72,13 @@ def detecbench(
     cfg.load_from = checkpoint_path
 
     if is_cc:
-        assert not isinstance(task, (PGD, FGSM, BIM, str))
+        assert not isinstance(task, (PGD, FGSM, BIM, IID))
         if task.dataset == "Pascal":
             cfg.val_dataloader.dataset.img_subdir = f"{task.name}/severity_{task.severity}/"
         elif task.dataset == "Coco":
             cfg.val_dataloader.dataset.data_prefix.img = f"{task.name}/severity_{task.severity}/"
     elif is_3dcc:
-        assert not isinstance(task, (PGD, FGSM, BIM, str))
+        assert not isinstance(task, (PGD, FGSM, BIM, IID))
         if task.dataset == "Pascal":
             cfg.val_dataloader.dataset.img_subdir = f"{task.name}/{task.severity}/"
         elif task.dataset == "Coco":
@@ -103,13 +111,15 @@ def detecbench(
 
     runner = Runner.from_cfg(cfg)
 
-    if is_attack:
-        # Setup the modified validation loop
-        assert not isinstance(task, (CommonCorruption, CommonCorruption3d, str))
+    if is_attack and not isinstance(task, (CommonCorruption, CommonCorruption3d, IID)):
         replace_val_loop(attack=task, use_wandb=use_wandb)
 
     runner.val()
 
 
+def main():
+    tyro.cli(evaluate)
+
+
 if __name__ == "__main__":
-    tyro.cli(detecbench)
+    main()

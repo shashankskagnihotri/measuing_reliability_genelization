@@ -1,3 +1,5 @@
+from typing import Literal
+
 import torch
 from mmengine.evaluator import Evaluator
 from mmengine.model import BaseModel
@@ -7,15 +9,15 @@ from .common import Attack
 
 
 class BIM(Attack):
-    """"""
+    """Basic Iterative Method (BIM) attack."""
 
     def __init__(
         self,
-        epsilon: float,
-        alpha: float,
-        steps: int,
+        epsilon: float = 8,
+        alpha: float = 2.55,
+        steps: int = 20,
         target: bool = False,
-        norm: str = "inf",
+        norm: Literal["inf", "two"] = "inf",
     ):
         """""" ""
         self.epsilon = epsilon

@@ -1,3 +1,5 @@
+from typing import Literal
+
 import torch
 from mmengine.evaluator import Evaluator
 from mmengine.model import BaseModel
@@ -7,20 +9,18 @@ from .common import Attack
 
 
 class FGSM(Attack):
-    """"""
+    """Fast Gradient Sign Method (FGSM) attack."""
 
     def __init__(
         self,
-        epsilon: float,
-        alpha: float,
-        steps: int,
+        epsilon: float = 8,
+        alpha: float = 2.55,
         target: bool = False,
-        norm: str = "inf",
+        norm: Literal["inf", "two"] = "inf",
     ):
         """""" ""
         self.epsilon = epsilon
         self.alpha = alpha
-        self.steps = steps
         self.target = target
         self.norm = norm
 
@@ -75,7 +75,7 @@ class FGSM(Attack):
         adv_images = adv_images.detach() + self.alpha * sign_data_grad
 
         if self.norm == "inf":
-            delta = torch.clamp(adv_images - images, min=-1 * self.epsilon, max=self.epsilon)
+            delta = torch.clamp(adv_images - images, min=-self.epsilon, max=self.epsilon)
         elif self.norm == "two":
             delta = adv_images - images
             batch_size = images.shape[0]
