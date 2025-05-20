@@ -6,7 +6,19 @@ This repository provides tools and models for benchmarking the robustness of sem
 
 ## Installation
 
-Install the package in editable mode:
+This package requires **Python 3.10.x** (tested with 3.10.17). Please ensure you have a compatible Python version installed.
+
+### Step 1: Run the installation script
+
+This script installs PyTorch with CUDA support, OpenMMLab dependencies (via `mim`), and handles editable installs for submodules like `mmsegmentation` and its ops.
+
+```bash
+bash install.sh
+```
+
+### Step 2: Install this package in editable mode
+
+After running the install script, install the core `semsegbench` package:
 
 ```bash
 pip install -e .
@@ -94,6 +106,21 @@ data/cityscapes/
 
 Download the dataset from: http://host.robots.ox.ac.uk/pascal/VOC/voc2012/#devkit
 
+This repository provides example split `.txt` files in `examples/voc2012/` for use with the dataset.  
+Each line in these files contains a single image ID (without extension or path), for example:
+
+```
+2007_000033
+2007_000042
+2007_000061
+```
+
+To use these splits with MMSegmentation or similar frameworks, place the `.txt` files under:
+
+```
+data/VOCdevkit/VOC2012/ImageSets/Segmentation/
+```
+
 <details>
 <summary>Expected directory structure</summary>
 
@@ -132,19 +159,27 @@ Download the dataset from: https://acdc.vision.ee.ethz.ch/
 data/
 ├── acdc_fog/
 │   ├── gt/
+│   │   ├── train/
+│   │   │   └── GOPR0475/
+│   │   │       ├── GOPR0475_frame_000041_gt_labelTrainIds.png
+│   │   │       ├── GOPR0475_frame_000049_gt_labelTrainIds.png
+│   │   │       └── ...
 │   │   └── test/
-│   │       ├── GOPR0475/
-│   │       │   ├── GOPR0475_frame_000247_gt_labelTrainIds.png
-│   │       │   ├── GOPR0475_frame_000252_gt_labelTrainIds.png
-│   │       │   └── ...
-│   │       └── ...
+│   │       └── GOPR0475/
+│   │           ├── GOPR0475_frame_000247_gt_labelTrainIds.png
+│   │           ├── GOPR0475_frame_000252_gt_labelTrainIds.png
+│   │           └── ...
 │   └── rgb_anno/
+│       ├── train/
+│       │   └── GOPR0475/
+│       │       ├── GOPR0475_frame_000041_rgb_anon.png
+│       │       ├── GOPR0475_frame_000049_rgb_anon.png
+│       │       └── ...
 │       └── test/
-│           ├── GOPR0475/
-│           │   ├── GOPR0475_frame_000247_rgb_anon.png
-│           │   ├── GOPR0475_frame_000252_rgb_anon.png
-│           │   └── ...
-│           └── ...
+│           └── GOPR0475/
+│               ├── GOPR0475_frame_000247_rgb_anon.png
+│               ├── GOPR0475_frame_000252_rgb_anon.png
+│               └── ...
 ├── acdc_night/
 │   └── ...
 ├── acdc_rain/

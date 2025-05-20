@@ -1,139 +1,90 @@
-import pandas as pd
 import os
+import shutil
+import torch
+import pandas as pd
 import yaml
+import json
+import math
 
 from pathlib import Path
 from mmseg.apis import MMSegInferencer
+from mmengine.config import Config
+from torch.hub import _get_torch_home
 
 from .semseg_wrapper import SemSegWrapper
+from .utils import get_args_parser, get_config_path, get_checkpoint_path, get_results
+from mmsegmentation.tools.test import main
 
 
 common_corruptions = [
-    'gaussian_noise',
-    'shot_noise',
-    'impulse_noise',
-    'defocus_blur',
-    'glass_blur',
-    'motion_blur',
-    'zoom_blur',
-    'snow',
-    'frost',
-    'fog',
-    'brightness',
-    'contrast',
-    'elastic_transform',
-    'pixelate',
-    'jpeg_compression',
+    'gaussian_noise', 'shot_noise', 'impulse_noise', 'defocus_blur', 'glass_blur',
+    'motion_blur', 'zoom_blur', 'snow', 'frost', 'fog',
+    'brightness', 'contrast', 'elastic_transform', 'pixelate', 'jpeg_compression',
 ] 
     
-attacks = [
-    'pgd',
-    'segpgd',
-    'cospgd',
-]
+attacks = ['pgd', 'segpgd', 'cospgd']
 
 
-def load_model(model_name: str, backbone: str = None, dataset: str = None, crop_size: str = None,
-               load_without_weights = False):
+def load_model(model_name: str, backbone: str, dataset: str, crop_size: str = None, load_without_weights = False):
     """
-    Load and return model specified by parameters
-    - model_name (str): either just architecture name like 'segformer' or whole config filename like 'segformer_mit-b0_8xb2-160k_ade20k-512x512'
-    - (optional) backbone (str): for example 'mit-b0'
-    - (optional) dataset (str): for example 'ade20k'
-    - (optional) crop_size (str): for example '512x512'
+    Load a pre-configured segmentation model with or without pretrained weights.
 
-    - load_without_weights (bool) default False: if True, no checkoint file will be searched and model will be loaded withou weights
+    - model_name (str): Name of the segmentation model architecture (e.g., 'DeepLabV3', 'SegFormer').
+    - backbone (str): Backbone network used in the model (e.g., 'ResNet50', 'MiT-B5').
+    - dataset (str): Name of the dataset the model was trained on (e.g., 'ADE20K', 'Cityscapes').
+    - (optional) crop_size (str): Crop size variant if the model config varies by input size (e.g., '512x512').
+    - load_without_weights (bool) default False: If True, only the model architecture is loaded without pretrained weights.
     """
     model_name = model_name.lower()
     backbone = backbone.lower()
-    if 'resnet' in backbone:
-        backbone = backbone.replace('resnet', 'r')
     dataset = dataset.lower()
 
-    model_architecture = model_name.split("_")[0]
-    architecture_config_path = Path(f"mmsegmentation/configs/{model_architecture}")
-    if not architecture_config_path.is_dir():
-        raise FileNotFoundError(f"No config for model with architecture name '{model_architecture}' existent!")
-    
-    # if model_name contains underscore --> expect whole config filename
-    if len(model_name.split("_")) > 1:
-        config_path = architecture_config_path / Path(model_name+".py")
-        if not config_path.is_file():
-            raise FileNotFoundError(f"No config found for model {model_name}")
-    else:
-        configs_in_dir = [config_path for config_path in architecture_config_path.iterdir() if config_path.stem.startswith(model_architecture)]
-        
-        # filter by backbone, dataset and crop_size if given
-        if backbone:
-            configs_in_dir = [config_path for config_path in configs_in_dir if backbone in config_path.stem]
-        if dataset:
-            configs_in_dir = [config_path for config_path in configs_in_dir if dataset in config_path.stem]
-        if crop_size:
-            configs_in_dir = [config_path for config_path in configs_in_dir if crop_size in config_path.stem]
-        """
-        if len(configs_in_dir) > 1:
-            error_message = "More than one model found with given parameters {'model_name': " + model_name
-            if backbone:
-                error_message += ", 'backbone': " + backbone
-            if dataset:
-                error_message += ", 'dataset': " + dataset
-            if crop_size:
-                error_message += ", 'crop_size': " + crop_size
-            error_message += "}\n"
-            error_message += "Following configs found: " + str([config_path.stem for config_path in configs_in_dir]) + "\n\n"
-            error_message += "If a value for each of the parameters 'model_name', 'backbone', 'dataset' and 'crop_size' were given, please enter the exact config_name in the paramter 'model_name'."
-            
-            raise ValueError(error_message)
-        """
-        if not configs_in_dir:
-            raise FileNotFoundError(f"No config found for model '{model_name}' with backbone '{backbone}' on dataset '{dataset}'.")
-        else:
-            config_path = configs_in_dir[0]
-    
+    config_path = get_config_path(model_name, backbone, dataset, crop_size)
+
     if load_without_weights:
-        checkpoint_path = None
+        inferencer = MMSegInferencer(model=str(config_path), weights=None)
     else:
-        # search for checkpoint file
-        checkpoint_files_path = Path(f"checkpoint_files/{model_architecture}")
-        if not checkpoint_files_path.is_dir():
-            raise FileNotFoundError(f"No checkpoint file found for config '{config_path.stem}'\n\n checkpoint file names have to start like the corresponding config file name")
+        try:
+            checkpoint_path = get_checkpoint_path(model_name, backbone, dataset, crop_size)
+            inferencer = MMSegInferencer(model=str(config_path), weights=str(checkpoint_path))
+        except (FileNotFoundError, RuntimeError) as e:
+            inferencer = MMSegInferencer(model=config_path.stem) # automatically download the checkpoint
+            torch_home = _get_torch_home()
+            torch_ckpt_dir = os.path.join(torch_home, "hub", "checkpoints")
 
-        # get pth files that start with same filename as config filename
-        checkpoints_in_dir = checkpoint_files_path.iterdir()
-        
-        # filter by backbone, dataset and crop_size if given
-        if backbone:
-            checkpoints_in_dir = [checkpoint_path for checkpoint_path in checkpoints_in_dir if backbone in checkpoint_path.stem]
-        if dataset:
-            checkpoints_in_dir = [checkpoint_path for checkpoint_path in checkpoints_in_dir if dataset in checkpoint_path.stem]
-        if crop_size:
-            checkpoints_in_dir = [checkpoint_path for checkpoint_path in checkpoints_in_dir if crop_size in checkpoint_path.stem]
+            for file in os.listdir(torch_ckpt_dir):
+                if file.startswith(model_name) and file.endswith(".pth"):
+                    # move the checkpoint to checkpoints/model_name/
+                    ckpt_path = os.path.join(torch_ckpt_dir, file)
+                    target_dir = os.path.join("checkpoints", model_name)
+                    os.makedirs(target_dir, exist_ok=True)
+                    new_ckpt_path = os.path.join(target_dir, file)
+                    shutil.move(ckpt_path, new_ckpt_path)
 
-        if len(checkpoints_in_dir) == 0:
-            raise ValueError(f"No checkpoint file found for config '{config_path.stem}'\n\n checkpoint file names have to start like the corresponding config file name")
-        elif len(checkpoints_in_dir) > 1:
-            raise ValueError(f"More than one checkpoint file found for config '{config_path.stem}'")
-        else:
-            checkpoint_path = checkpoints_in_dir[0]
-            print("found checkpoint_path")
-    
-    if checkpoint_path is not None:
-        checkpoint_path = str(checkpoint_path)
-    model_str_path = str(config_path)
-    
-    inferencer = MMSegInferencer(model=model_str_path, weights=checkpoint_path)
-    model = inferencer.model
-    return model
+    return inferencer.model
 
 
 def evaluate(
     model_name: str, backbone: str, dataset: str, retrieve_existing: bool, threat_config: str, crop_size: str = None,
 ):
+    """
+    Evaluate a segmentation model under a specified robustness threat scenario. 
+    
+    This function loads a model and evaluates it according to a defined threat model, such as
+    adversarial attacks, common corruptions, or adverse conditions (e.g., ACDC). The evaluation
+    is either run from scratch or retrieved from existing evaluation in the benchmark.
+    
+    - model_name (str): Name of the segmentation model architecture (e.g., 'DeepLabV3', 'SegFormer').
+    - backbone (str): Backbone network used in the model (e.g., 'ResNet50', 'MiT-B5').
+    - dataset (str): Name of the dataset the model was trained on (e.g., 'ADE20K', 'Cityscapes').
+    - retrieve_existing (bool): If True, returns cached results if a matching evaluation exists. Otherwise, reruns evaluation.
+    - threat_config (str): Path to a YAML file defining the threat model and parameters for evaluation.
+    - (optional) crop_size (str): Crop size variant if the model config varies by input size (e.g., '512x512').
+    """
     model_name = model_name.lower()
     backbone = backbone.lower()
     dataset = dataset.lower()
     model = load_model(model_name, backbone, dataset, crop_size)
-    results = None
 
     if not os.path.exists(threat_config):
         raise ValueError(f"Config {threat_config} does not exist")
@@ -162,20 +113,47 @@ def evaluate(
                 for corruption in common_corruptions:
                     metrics = ['aAcc', 'mIoU', 'mAcc']
                     row = results_df.iloc[0]
-                    results[corruption] = {
-                        metric: row.get(f'{metric}_2d_{corruption}', None)
-                        for metric in metrics
-                    }
+                    metric_values = {metric: row[f'{metric}_2d_{corruption}'] for metric in metrics}
+
+                    if all(not math.isnan(value) for value in metric_values.values()):
+                        results[corruption] = metric_values
+            
+            if len(results) == len(common_corruptions):
                 return model, results
         
         # run 2D Common Corruptions
+        args = get_args_parser()
+        config_path = get_config_path(model_name, backbone, dataset, crop_size)
+        checkpoint_path = get_checkpoint_path(model_name, backbone, dataset, crop_size)
+        
+        args.config = str(config_path)
+        args.checkpoint = str(checkpoint_path)
+        
+        results = {}
+
+        for corruption in common_corruptions:
+            args.cfg_options = {
+                'model.data_preprocessor.corruption': corruption,
+                'model.data_preprocessor.severity': severity,
+            }
+            args.work_dir = f'work_dirs/2d_corruptions/{config_path.stem}/{corruption}_severity{severity}'
+            
+            with torch.autocast(device_type="cuda"):
+                main(args)
+            
+            # load results from json
+            metric_values = get_results(args.work_dir)
+            results[corruption] = metric_values
+
+        return model, results
             
     elif threat_model in attacks:
-        if retrieve_existing and config['iterations'] == 20:
-            epsilon = float(config['epsilon'])
-            alpha = float(config['alpha'])
-            lp_norm = config['lp_norm'].lower()
+        iterations = int(config['iterations'])
+        epsilon = float(config['epsilon'])
+        alpha = float(config['alpha'])
+        lp_norm = config['lp_norm'].lower()
 
+        if retrieve_existing and iterations == 20:
             default_combinations = {
                 (8.0, 0.01, 'linf'),
                 (64.0, 0.1, 'l2')
@@ -190,19 +168,40 @@ def evaluate(
                     test_type=threat_model,
                 )
 
-                if results_df is not None:
-                    metrics = ['aAcc', 'mIoU', 'mAcc']
-                    row = results_df.iloc[0]
-                    results = {
-                        metric: row.get(f"{metric}_{threat_model}_{config['lp_norm'].lower()}", None)
-                        for metric in metrics
-                    }
+                metrics = ['aAcc', 'mIoU', 'mAcc']
+                row = results_df.iloc[0]
+                results = {metric: row[f'{metric}_{threat_model}_{lp_norm}'] for metric in metrics}
+                if all(not math.isnan(value) for value in results.values()):
                     return model, results
 
         # run Adversarial Attacks
+        args = get_args_parser()
+        config_path = get_config_path(model_name, backbone, dataset, crop_size)
+        checkpoint_path = get_checkpoint_path(model_name, backbone, dataset, crop_size)
+        
+        args.config = str(config_path)
+        args.checkpoint = str(checkpoint_path)
+        args.cfg_options = {
+            'model.perform_attack': True,
+            'model.attack_cfg.name': threat_model,
+            'model.attack_cfg.norm': lp_norm,
+            'model.attack_cfg.iterations': iterations,
+            'model.attack_cfg.alpha': alpha,
+            'model.attack_cfg.epsilon': epsilon,
+        }
+        args.work_dir = f'work_dirs/adv_attacks/{config_path.stem}/{threat_model}_{lp_norm}_iterations{iterations}_alpha{alpha}_epsilon{epsilon}'
+        
+        with torch.autocast(device_type="cuda"):
+            main(args)
+
+        # load results from json
+        results = get_results(args.work_dir)
+        return model, results
 
     elif threat_model == 'acdc':
-        if config['condition'].lower() not in ['fog', 'night', 'rain', 'snow']:
+        condition = config['condition'].lower()
+
+        if condition not in ['fog', 'night', 'rain', 'snow']:
             raise ValueError("Invalid condition specified: must be one of ['Fog', 'Night', 'Rain', 'Snow'].")
 
         if retrieve_existing:
@@ -217,13 +216,28 @@ def evaluate(
             if results_df is not None:
                 metrics = ['aAcc', 'mIoU', 'mAcc']
                 row = results_df.iloc[0]
-                results = {
-                    metric: row.get(f"{metric}_acdc_{config['condition'].lower()}", None)
-                    for metric in metrics
-                }
-                return model, results
+                results = {metric: row[f'{metric}_acdc_{condition}'] for metric in metrics}
+                if all(not math.isnan(value) for value in results.values()):
+                    return model, results
 
         # run ACDC
+        args = get_args_parser()
+        config_path = get_config_path(model_name, backbone, dataset, crop_size)
+        checkpoint_path = get_checkpoint_path(model_name, backbone, dataset, crop_size)
+        
+        args.config = str(config_path)
+        args.checkpoint = str(checkpoint_path)
+        args.work_dir = f'work_dirs/acdc/{config_path.stem}/{condition}'
+
+        acdc_cfg = Config.fromfile(f'mmsegmentation/configs/_base_/datasets/acdc_{condition}.py')
+        args.cfg_options = acdc_cfg
+
+        with torch.autocast(device_type="cuda"):
+            main(args)
+
+        # load results from json
+        results = get_results(args.work_dir)
+        return model, results
         
     else:
         ValueError(f"Threat model {config['threat_model']} is not supported")
@@ -242,7 +256,7 @@ if __name__ == "__main__":
         model_name='DeepLabV3', 
         backbone='ResNet50', 
         dataset='ADE20K',
-        retrieve_existing=True,
+        retrieve_existing=False,
         threat_config='configs/threat/2d_corruptions.yml',
     )
     print(results)
@@ -251,7 +265,7 @@ if __name__ == "__main__":
         model_name='DeepLabV3', 
         backbone='ResNet50', 
         dataset='ADE20K',
-        retrieve_existing=True,
+        retrieve_existing=False,
         threat_config='configs/threat/adv_attacks.yml',
     )
     print(results)
@@ -260,7 +274,7 @@ if __name__ == "__main__":
         model_name='DeepLabV3', 
         backbone='ResNet50', 
         dataset='ADE20K',
-        retrieve_existing=True,
+        retrieve_existing=False,
         threat_config='configs/threat/acdc.yml',
     )
     print(results)

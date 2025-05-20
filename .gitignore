@@ -3,7 +3,7 @@ __pycache__/
 semantic_segmentation/aa_workdir
 semantic_segmentation/acdc_workdir
 semantic_segmentation/clean_workdir
-semantic_segmentation/checkpoint_files
+semantic_segmentation/checkpoints
 semantic_segmentation/data
 semantic_segmentation/slurm
 semantic_segmentation/tests

@@ -12,8 +12,8 @@ from mmengine.runner import Runner
 def parse_args():
     parser = argparse.ArgumentParser(
         description='MMSeg test (and eval) a model')
-    parser.add_argument('config', help='train config file path')
-    parser.add_argument('checkpoint', help='checkpoint file')
+    parser.add_argument('--config', help='train config file path')
+    parser.add_argument('--checkpoint', help='checkpoint file')
     parser.add_argument(
         '--work-dir',
         help=('if specified, the evaluation metric results will be dumped'
@@ -80,8 +80,16 @@ def trigger_visualization_hook(cfg, args):
     return cfg
 
 
-def main():
+def merge_args(base_args: argparse.Namespace, override_args: argparse.Namespace) -> argparse.Namespace:
+    merged = vars(base_args).copy()
+    merged.update(vars(override_args))
+    return argparse.Namespace(**merged)
+
+
+def main(args_from_evals=None):
     args = parse_args()
+    if args_from_evals is not None:
+        args = merge_args(args, args_from_evals)
 
     # load config
     cfg = Config.fromfile(args.config)

@@ -8,7 +8,7 @@ from mmengine.model import BaseDataPreprocessor
 from mmseg.registry import MODELS
 from mmseg.utils import stack_batch
 
-from imagenet_c import corrupt
+from imagecorruptions import corrupt
 
 @MODELS.register_module()
 class SegDataPreProcessor(BaseDataPreprocessor):
@@ -67,7 +67,9 @@ class SegDataPreProcessor(BaseDataPreprocessor):
         batch_augments: Optional[List[dict]] = None,
         test_cfg: dict = None,
         enable_normalization: bool = True,
-        corruption: str = None
+        corruption: str = None,
+        severity: int = None,
+        
     ):
         super().__init__()
         self.size = size
@@ -101,7 +103,9 @@ class SegDataPreProcessor(BaseDataPreprocessor):
         # Support different padding methods in testing
         self.test_cfg = test_cfg
 
+        # 2d common corruption
         self.corruption = corruption
+        self.severity = severity
 
     def forward(self, data: dict, training: bool = False) -> Dict[str, Any]:
         """Perform normalization、padding and bgr2rgb conversion based on
@@ -120,7 +124,10 @@ class SegDataPreProcessor(BaseDataPreprocessor):
 
         if self.corruption:
             for i in range(len(inputs)):
-                inputs[i] = corrupt(inputs[i], corruption_name = self.corruption)
+                device = inputs[0].device
+                img_np = inputs[i].cpu().numpy().transpose(1, 2, 0)  # CHW -> HWC
+                img_np = corrupt(img_np, corruption_name=self.corruption, severity=self.severity)
+                inputs[i] = torch.from_numpy(img_np).permute(2, 0, 1).to(device) # HWC -> CHW
 
         # TODO: whether normalize should be after stack_batch
         if self.channel_conversion and inputs[0].size(0) == 3:
