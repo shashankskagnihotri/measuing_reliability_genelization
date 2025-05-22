@@ -25,7 +25,6 @@ class CommonCorruption:
     ]
     severity: int = 3
     generate_missing: bool = False
-    dataset: Literal["Coco", "Pascal"] = "Coco"
 
 
 @dataclass
@@ -35,4 +34,3 @@ class CommonCorruption3d:
     name: str
     severity: int = 3
     generate_missing: bool = False
-    dataset: Literal["Coco", "Pascal"] = "Coco"

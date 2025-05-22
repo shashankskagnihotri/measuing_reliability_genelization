@@ -46,8 +46,48 @@ uv run mmdetection/tools/misc/download_dataset.py --dataset-name voc2017 --save-
 ## Generate corrupted data
 
 DetecBench can evaluate models on corrupted images that simulate real-world conditions. To generate these corrupted datasets:
-- Follow instructions at [Common Corruptions](https://github.com/hendrycks/robustness)
+- Follow instructions at [Common Corruptions](https://github.com/bethgelab/imagecorruptions)
 - Follow instructions at [3D Common Corruptions](https://github.com/EPFL-VILAB/3DCommonCorruptions/tree/main)
+
+The DetecBench expects the following folder structure:
+
+```
+data/
+├── coco/
+│   └── cc/                           # Common corruptions for COCO
+│       ├── brightness/               # Corruption type
+│       │   ├── severity_1/          # Severity level
+│       │   │   ├── 000000000139.jpg # Corrupted images
+│       │   │   └── ...
+│       │   ├── severity_2/
+│       │   ├── severity_3/
+│       │   ├── severity_4/
+│       │   └── severity_5/
+│       ├── frost/
+│       ├── gaussian_noise/
+│       └── ...
+├── VOCdevkit/
+│   └── VOC2007/
+│       └── cc/                       # Common corruptions for VOC
+│           ├── brightness/           # Corruption type
+│           │   ├── severity_1/      # Severity level
+│           │   │   ├── 000001.jpg   # Corrupted images
+│           │   │   └── ...
+│           │   ├── severity_2/
+│           │   ├── severity_3/
+│           │   ├── severity_4/
+│           │   └── severity_5/
+│           ├── frost/
+│           ├── gaussian_noise/
+│           └── ...
+```
+
+For each dataset (COCO and VOC), corrupted images should be organized in a hierarchical structure:
+1. First level: `cc/` directory for common corruptions
+2. Second level: Corruption type (e.g., `brightness/`, `frost/`, `gaussian_noise/`)
+3. Third level: Severity level from 1-5 (e.g., `severity_1/`, `severity_2/`, etc.)
+4. Inside each severity folder: Corrupted images with the same filenames as the original dataset
+
 
 ## Download pre-trained models
 
@@ -156,7 +196,22 @@ evaluate(task=bim, model_folder="./models/DINO_Swin-L", log_dir = "./logs")
 ### Common corruption evaluation
 
 ```bash
-uv run detecbench task:common-corruption task.name=gaussian_noise task.severity 3
+# 2D
+uv run detecbench task:common-corruption --task.name=gaussian_noise --task.severity 3
+# 3D
+uv run detecbench task:common-corruption3d --task.name=near_focus --task.severity 3
+```
+
+or from Python
+
+```python
+from detecbench import attacks, corruptions, evaluate
+
+cc_contrast = corruptions.CommonCorruption(name="contrast", severity=3)
+evaluate(task=cc_contrast, model_folder="./models/RetinaNet_R-101-FPN", log_dir = "./logs", wandb_project = None, wandb_entity = None)
+
+cc3d_near_focus = corruptions.CommonCorruption3d(name="near_focus", severity=3)
+evaluate(task=cc3d_near_focus, model_folder="./models/RetinaNet_R-101-FPN", log_dir = "./logs", wandb_project = None, wandb_entity = None)
 ```
 
 ### Logging with Weights & Biases
@@ -171,6 +226,8 @@ To add your own models for evaluation:
 1. Create a new folder in the `models` directory
 2. Add your model configuration (`.py`) and checkpoint (`.pth`) files
 3. Run the evaluation specifying your model folder
+
+## Using a different
 
 ## Contributing
 

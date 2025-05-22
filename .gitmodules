@@ -1,3 +1,6 @@
 [submodule "object_detection/mmdetection"]
 	path = object_detection/mmdetection
 	url = https://github.com/jjakubassa/mmdetection
+[submodule "object_detection/3DCommonCorruptions"]
+	path = object_detection/3DCommonCorruptions
+	url = https://github.com/EPFL-VILAB/3DCommonCorruptions.git

@@ -13,7 +13,6 @@ from detecbench.corruptions import CommonCorruption, CommonCorruption3d
 @dataclass
 class IID:
     """Independent and Identically Distributed (IID) evaluation."""
-
     pass
 
 
@@ -73,15 +72,15 @@ def evaluate(
 
     if is_cc:
         assert not isinstance(task, (PGD, FGSM, BIM, IID))
-        if task.dataset == "Pascal":
+        if cfg.dataset_type == 'VOCDataset':
             cfg.val_dataloader.dataset.img_subdir = f"{task.name}/severity_{task.severity}/"
-        elif task.dataset == "Coco":
+        elif cfg.dataset_type == 'CocoDataset':
             cfg.val_dataloader.dataset.data_prefix.img = f"{task.name}/severity_{task.severity}/"
     elif is_3dcc:
         assert not isinstance(task, (PGD, FGSM, BIM, IID))
-        if task.dataset == "Pascal":
+        if cfg.dataset_type == 'VOCDataset':
             cfg.val_dataloader.dataset.img_subdir = f"{task.name}/{task.severity}/"
-        elif task.dataset == "Coco":
+        elif cfg.dataset_type == 'CocoDataset':
             cfg.val_dataloader.dataset.data_prefix.img = f"{task.name}/{task.severity}/"
 
     # Setup optional wandb logging
@@ -114,8 +113,8 @@ def evaluate(
     if is_attack and not isinstance(task, (CommonCorruption, CommonCorruption3d, IID)):
         replace_val_loop(attack=task, use_wandb=use_wandb)
 
-    runner.val()
-
+    metrics = runner.val()
+    print(metrics)
 
 def main():
     tyro.cli(evaluate)

@@ -109,12 +109,11 @@ def common_corruptions(
 if __name__ == "__main__":
     executor = submitit.AutoExecutor(folder="slurm/logs/cc/%j")
     executor.update_parameters(
-        slurm_partition="single",
+        slurm_partition="cpu",
         # slurm_gres="gpu:1",
-        cpus_per_task=8,
+        cpus_per_task=16,
         nodes=1,
         tasks_per_node=1,
-        # slurm_time="1:00:00",
         slurm_time="1:00:00",
         slurm_mem="4GB",
     )
