@@ -20,6 +20,7 @@ class BIM(Attack):
         norm: Literal["inf", "two"] = "inf",
     ):
         """""" ""
+        self.name = "bim"
         self.epsilon = epsilon
         self.alpha = alpha
         self.steps = steps

@@ -19,6 +19,7 @@ class FGSM(Attack):
         norm: Literal["inf", "two"] = "inf",
     ):
         """""" ""
+        self.name = "fgsm"
         self.epsilon = epsilon
         self.alpha = alpha
         self.target = target

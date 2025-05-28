@@ -51,6 +51,9 @@ DetecBench can evaluate models on corrupted images that simulate real-world cond
 
 The DetecBench expects the following folder structure:
 
+<details>
+<summary>Expected directory structure</summary>
+
 ```
 data/
 ├── coco/
@@ -81,6 +84,9 @@ data/
 │           ├── gaussian_noise/
 │           └── ...
 ```
+
+</details>
+
 
 For each dataset (COCO and VOC), corrupted images should be organized in a hierarchical structure:
 1. First level: `cc/` directory for common corruptions
@@ -143,7 +149,7 @@ pgd = attacks.PGD(
     target = False,
     random_start = False,
 )
-evaluate(task=pgd, model_folder="./models/RetinaNet_R-101-FPN", log_dir = "./logs", wandb_project = None, wandb_entity = None)
+evaluate(task=pgd, model_folder="./models/RetinaNet_R-101-FPN", log_dir = "./logs", wandb_project = None, wandb_entity = None, retrieve_existing = False, output_csv = "./results.csv")
 ```
 
 ### FGSM attack evaluation
@@ -166,7 +172,7 @@ fgsm = attacks.FGSM(
     norm = "inf",
     target = False,
 )
-evaluate(task=fgsm, model_folder="./models/DINO_Swin-L", log_dir = "./logs")
+evaluate(task=fgsm, model_folder="./models/DINO_Swin-L", log_dir = "./logs", wandb_project = None, wandb_entity = None, retrieve_existing = False, output_csv = "./results.csv")
 ```
 
 ### BIM attack evaluation
@@ -190,7 +196,7 @@ bim = attacks.BIM(
     norm = "inf",
     target = 0,
 )
-evaluate(task=bim, model_folder="./models/DINO_Swin-L", log_dir = "./logs")
+evaluate(task=bim, model_folder="./models/DINO_Swin-L", log_dir = "./logs", wandb_project = None, wandb_entity = None, retrieve_existing = False, output_csv = "./results.csv")
 ```
 
 ### Common corruption evaluation
@@ -198,6 +204,8 @@ evaluate(task=bim, model_folder="./models/DINO_Swin-L", log_dir = "./logs")
 ```bash
 # 2D
 uv run detecbench task:common-corruption --task.name=gaussian_noise --task.severity 3
+uv run detecbench task:all-common-corruptions --task.severity 3
+
 # 3D
 uv run detecbench task:common-corruption3d --task.name=near_focus --task.severity 3
 ```
@@ -208,16 +216,41 @@ or from Python
 from detecbench import attacks, corruptions, evaluate
 
 cc_contrast = corruptions.CommonCorruption(name="contrast", severity=3)
-evaluate(task=cc_contrast, model_folder="./models/RetinaNet_R-101-FPN", log_dir = "./logs", wandb_project = None, wandb_entity = None)
+evaluate(task=cc_contrast, model_folder="./models/RetinaNet_R-101-FPN", log_dir = "./logs", wandb_project = None, wandb_entity = None, retrieve_existing = False, output_csv = "./results.csv")
+
+cc_all = corruptions.AllCommonCorruptions(severity=3)
+evaluate(task=cc_all, model_folder="./models/RetinaNet_R-101-FPN", log_dir = "./logs", wandb_project = None, wandb_entity = None, retrieve_existing = False, output_csv = "./results.csv")
 
 cc3d_near_focus = corruptions.CommonCorruption3d(name="near_focus", severity=3)
-evaluate(task=cc3d_near_focus, model_folder="./models/RetinaNet_R-101-FPN", log_dir = "./logs", wandb_project = None, wandb_entity = None)
+evaluate(task=cc3d_near_focus, model_folder="./models/RetinaNet_R-101-FPN", log_dir = "./logs", wandb_project = None, wandb_entity = None, retrieve_existing = False, output_csv = "./results.csv")
 ```
 
-### Logging with Weights & Biases
+### Logging
+
+the results are saved to a csv file by default, with the option to load a evaluation results if they already exist:
+
+```bash
+uv run detecbench --retrieve_existing --output_csv ./results.csv task:pgd
+```
+
+```python
+from detecbench import attacks, corruptions, evaluate
+pgd = attacks.PGD()
+
+evaluate(task=pgd, model_folder="./models/RetinaNet_R-101-FPN", retrieve_existing = False, output_csv = "./results.csv")
+```
+
+for additionall logging with Weights & Biases:
 
 ```bash
 uv run detecbench task:pgd --task.wandb_project your_project --task.wandb_entity your_username
+```
+
+```python
+from detecbench import attacks, corruptions, evaluate
+pgd = attacks.PGD()
+
+evaluate(task=pgd, model_folder="./models/RetinaNet_R-101-FPN", wandb_project = "your_project", wandb_entity = "your_username")
 ```
 
 ## Adding custom models
@@ -226,8 +259,6 @@ To add your own models for evaluation:
 1. Create a new folder in the `models` directory
 2. Add your model configuration (`.py`) and checkpoint (`.pth`) files
 3. Run the evaluation specifying your model folder
-
-## Using a different
 
 ## Contributing
 

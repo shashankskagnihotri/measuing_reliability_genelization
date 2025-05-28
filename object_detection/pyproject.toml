@@ -10,6 +10,7 @@ dependencies = [
     "mmdet",
     "mmengine>=0.10.5",
     "openmim>=0.3.9",
+    "pandas>=2.2.3",
     "submitit>=1.5.3",
     "torch==2.4.1+cu118",
     "torchaudio==2.4.1+cu118",

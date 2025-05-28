@@ -20,6 +20,7 @@ class PGD(Attack):
         random_start: bool = False,
         norm: Literal["inf", "two"] = "inf",
     ):
+        self.name = "pgd"
         self.epsilon = epsilon
         self.alpha = alpha
         self.steps = steps
